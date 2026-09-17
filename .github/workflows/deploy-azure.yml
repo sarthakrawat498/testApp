@@ -55,10 +55,37 @@ jobs:
       - name: Disable remote Oryx build on App Service
         run: |
           RESOURCE_GROUP=$(az webapp list --query "[?name=='TestAppBackend'].resourceGroup | [0]" -o tsv)
+          echo "Resource group: $RESOURCE_GROUP"
+
           az webapp config appsettings set \
             --name TestAppBackend \
             --resource-group "$RESOURCE_GROUP" \
-            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false
+            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false ENABLE_ORYX_BUILD=false \
+            --output none
+
+          az webapp config set \
+            --name TestAppBackend \
+            --resource-group "$RESOURCE_GROUP" \
+            --startup-file "npm start" \
+            --output none
+
+          echo "Waiting for setting to take effect..."
+          for i in $(seq 1 10); do
+            CURRENT_VALUE=$(az webapp config appsettings list \
+              --name TestAppBackend \
+              --resource-group "$RESOURCE_GROUP" \
+              --query "[?name=='SCM_DO_BUILD_DURING_DEPLOYMENT'].value | [0]" \
+              -o tsv)
+            echo "Attempt $i: SCM_DO_BUILD_DURING_DEPLOYMENT=$CURRENT_VALUE"
+            if [ "$CURRENT_VALUE" = "false" ]; then
+              break
+            fi
+            sleep 5
+          done
+
+          echo "Restarting App Service so Kudu picks up the new setting..."
+          az webapp restart --name TestAppBackend --resource-group "$RESOURCE_GROUP"
+          sleep 20
 
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
