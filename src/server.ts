@@ -9,7 +9,7 @@ app.use(cors({ origin: process.env.FRONTEND_URL || true }));
 app.use(express.json());
 
 app.get('/', (_request, response) => {
-  response.type('text/plain').send('yes hello website working');
+  response.type('text/plain').send('Hello there the website is working now');
 });
 
 app.get('/health', (_request, response) => {
