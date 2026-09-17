@@ -36,11 +36,14 @@ jobs:
           test -f package-lock.json
           test -f dist/server.js
 
+      - name: Remove dev dependencies from node_modules
+        run: npm prune --omit=dev
+
       - name: Prepare deployment package
         run: |
           mkdir release
           cp package.json package-lock.json release/
-          cp -r src dist release/
+          cp -r dist node_modules release/
 
       - name: Sign in to Azure with OpenID Connect
         uses: azure/login@v2
@@ -48,6 +51,14 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Disable remote Oryx build on App Service
+        run: |
+          RESOURCE_GROUP=$(az webapp list --query "[?name=='TestAppBackend'].resourceGroup | [0]" -o tsv)
+          az webapp config appsettings set \
+            --name TestAppBackend \
+            --resource-group "$RESOURCE_GROUP" \
+            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false
 
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
