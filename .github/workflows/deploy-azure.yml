@@ -36,14 +36,11 @@ jobs:
           test -f package-lock.json
           test -f dist/server.js
 
-      - name: Remove dev dependencies from node_modules
-        run: npm prune --omit=dev
-
       - name: Prepare deployment package
         run: |
           mkdir release
           cp package.json package-lock.json release/
-          cp -r dist node_modules release/
+          cp -r dist release/
 
       - name: Sign in to Azure with OpenID Connect
         uses: azure/login@v2
@@ -52,7 +49,7 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Disable remote Oryx build on App Service
+      - name: Configure App Service build settings
         run: |
           RESOURCE_GROUP=$(az webapp list --query "[?name=='TestAppBackend'].resourceGroup | [0]" -o tsv)
           echo "Resource group: $RESOURCE_GROUP"
@@ -60,7 +57,7 @@ jobs:
           az webapp config appsettings set \
             --name TestAppBackend \
             --resource-group "$RESOURCE_GROUP" \
-            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false ENABLE_ORYX_BUILD=false \
+            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true ENABLE_ORYX_BUILD=true \
             --output none
 
           az webapp config set \
@@ -77,15 +74,11 @@ jobs:
               --query "[?name=='SCM_DO_BUILD_DURING_DEPLOYMENT'].value | [0]" \
               -o tsv)
             echo "Attempt $i: SCM_DO_BUILD_DURING_DEPLOYMENT=$CURRENT_VALUE"
-            if [ "$CURRENT_VALUE" = "false" ]; then
+            if [ "$CURRENT_VALUE" = "true" ]; then
               break
             fi
             sleep 5
           done
-
-          echo "Restarting App Service so Kudu picks up the new setting..."
-          az webapp restart --name TestAppBackend --resource-group "$RESOURCE_GROUP"
-          sleep 20
 
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
