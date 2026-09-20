@@ -41,6 +41,8 @@ jobs:
           mkdir release
           cp package.json package-lock.json release/
           cp -r dist release/
+          cd release
+          npm ci --omit=dev --ignore-scripts
 
       - name: Sign in to Azure with OpenID Connect
         uses: azure/login@v2
@@ -49,7 +51,7 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Configure App Service build settings
+      - name: Configure App Service runtime settings
         run: |
           RESOURCE_GROUP=$(az webapp list --query "[?name=='TestAppBackend'].resourceGroup | [0]" -o tsv)
           echo "Resource group: $RESOURCE_GROUP"
@@ -57,7 +59,7 @@ jobs:
           az webapp config appsettings set \
             --name TestAppBackend \
             --resource-group "$RESOURCE_GROUP" \
-            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true ENABLE_ORYX_BUILD=true \
+            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false ENABLE_ORYX_BUILD=false \
             --output none
 
           az webapp config set \
@@ -74,7 +76,7 @@ jobs:
               --query "[?name=='SCM_DO_BUILD_DURING_DEPLOYMENT'].value | [0]" \
               -o tsv)
             echo "Attempt $i: SCM_DO_BUILD_DURING_DEPLOYMENT=$CURRENT_VALUE"
-            if [ "$CURRENT_VALUE" = "true" ]; then
+            if [ "$CURRENT_VALUE" = "false" ]; then
               break
             fi
             sleep 5
