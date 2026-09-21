@@ -11,7 +11,7 @@ permissions:
   id-token: write
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -43,6 +43,24 @@ jobs:
           cp -r dist release/
           cd release
           npm ci --omit=dev --ignore-scripts
+
+      - name: Upload deployment package
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-package
+          path: release
+          include-hidden-files: true
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download deployment package
+        uses: actions/download-artifact@v4
+        with:
+          name: app-package
+          path: release
 
       - name: Sign in to Azure with OpenID Connect
         uses: azure/login@v2
